@@ -7,8 +7,7 @@ import gensim
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import scipy
-import scipy.misc
+from sklearn import manifold
 
 
 def load_vects(samples, path='../../../GoogleNews-vectors-negative300.bin'):
@@ -62,6 +61,39 @@ evects = eigensystem(vects, mean)
 reducedU = evects[:, 0:2]
 reduced_vects = np.dot(np.transpose(reducedU), np.transpose(vects))
 
-print reduced_vects
+xs = reduced_vects[0]
+ys = reduced_vects[1]
+
+plt.figure(figsize = (12, 8))
+plt.scatter(xs, ys, marker = 'o')
+
+for i, w in enumerate(labels):
+    plt.annotate(
+            w.decode('utf-8', 'ignore'),
+            xy = (xs[i], ys[i]), xytext = (3, 3),
+            textcoords = 'offset points', ha = 'left', va = 'top')
+plt.show()
+
+points = np.transpose(reduced_vects)
+dist = np.zeros((len(points), len(points)))
+for x in range(len(points)):
+    for y in range(len(points)):
+        print points[x]
+        print points[y]
+        dist[x][y] = np.linalg.norm(points[x] - points[y])
+
+mds = manifold.MDS(n_components=2)
+results = mds.fit(dist)
+coords = results.embedding_
+
+plt.scatter(coords[:, 0], coords[:, 1], marker='o')
+
+for i, w in enumerate(labels):
+    plt.annotate(
+        w.decode('utf-8', 'ignore'),
+        xy = (coords[:,0][i], coords[:,1][i]), xytext = (3, 3),
+        textcoords = 'offset points', ha = 'left', va = 'top')
+
+plt.show()
 
 
