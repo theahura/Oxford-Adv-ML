@@ -49,51 +49,47 @@ def project_img(image, mean, evectors):
     diff = image - mean
     return np.dot(diff, evectors)
 
+def distances(points):
+    dist = np.zeros((len(points), len(points)))
+    for x in range(len(points)):
+        for y in range(len(points)):
+            dist[x][y] = np.linalg.norm(points[x] - points[y])
+    return dist
+
+def plot(labels, x, y):
+    """
+    Plot a scatter plot.
+    """
+    plt.scatter(x, y, marker='o')
+
+    for i, w in enumerate(labels):
+        plt.annotate(
+            w.decode('utf-8', 'ignore'),
+            xy = (x[i], y[i]), xytext = (3, 3),
+            textcoords = 'offset points', ha = 'left', va = 'top')
+
+    plt.show()
+
+
+
 labels = ['pizza', 'tacos', 'sub', 'cheese', 'dessert', 'lunch', 'pie', 'steak',
            'ribs', 'carrot', 'car', 'train', 'plane', 'boat', 'ship', 'bike',
            'skates', 'bus', 'subway', 'scooter', 'pen', 'pencil', 'notebook',
            'paper', 'highlighter', 'eraser', 'paperclip', 'stapler', 'staples',
            'lead']
 
+# PCA Plot
 vects = load_vects(labels)
 mean = get_mean(vects)
 evects = eigensystem(vects, mean)
-reducedU = evects[:, 0:2]
-reduced_vects = np.dot(np.transpose(reducedU), np.transpose(vects))
+reduced_vects = np.dot(np.transpose(evects[:, 0:2]), np.transpose(vects))
+plot(labels, reduced_vects[0], reduced_vects[1])
 
-xs = reduced_vects[0]
-ys = reduced_vects[1]
-
-plt.figure(figsize = (12, 8))
-plt.scatter(xs, ys, marker = 'o')
-
-for i, w in enumerate(labels):
-    plt.annotate(
-            w.decode('utf-8', 'ignore'),
-            xy = (xs[i], ys[i]), xytext = (3, 3),
-            textcoords = 'offset points', ha = 'left', va = 'top')
-plt.show()
-
+# MDS Plot
 points = np.transpose(reduced_vects)
-dist = np.zeros((len(points), len(points)))
-for x in range(len(points)):
-    for y in range(len(points)):
-        print points[x]
-        print points[y]
-        dist[x][y] = np.linalg.norm(points[x] - points[y])
-
+dist = distances(points)
 mds = manifold.MDS(n_components=2)
 results = mds.fit(dist)
 coords = results.embedding_
-
-plt.scatter(coords[:, 0], coords[:, 1], marker='o')
-
-for i, w in enumerate(labels):
-    plt.annotate(
-        w.decode('utf-8', 'ignore'),
-        xy = (coords[:,0][i], coords[:,1][i]), xytext = (3, 3),
-        textcoords = 'offset points', ha = 'left', va = 'top')
-
-plt.show()
-
+plot(labels, coords[:, 0], coords[:, 1])
 
