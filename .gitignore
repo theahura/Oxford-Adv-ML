@@ -1,0 +1,13 @@
+*pyc
+*png
+*swp
+log*
+logs*
+events*
+*ckpt
+*ckpt.meta
+*checkpoint*
+backups/
+*.data
+*.csv
+MNIST_data
