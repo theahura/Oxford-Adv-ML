@@ -6,54 +6,126 @@ Description: The model for the mnist gan.
 import numpy as np
 import tensorflow as tf
 
-def conv2d(x, num_filters, name, filter_size=(3, 3), stride=1):
+import constants as c
+
+
+def get_model(sess):
     """
-    Defines 2d convolution layer. Influenced by starter agent.
+    Loads the tf model or inits a new one.
     """
-    with tf.variable_scope(name):
-        stride_shape = [1, stride, stride, 1]
-        w_shape = [filter_size[0], filter_size[1], int(x.get_shape()[3]),
-                   num_filters]
-        b_shape = [1, 1, 1, num_filters]
+    gan = GAN(c.IM_SIZE, c.Z_SIZE, c.GEN_NETWORK, c.DISCRIM_NETWORK)
 
-        # initialize weights with random weights, see ELU paper
-        # which cites He initialization
-        # filter w * h * channels in
-        fan_in = filter_size[0] * filter_size[1] * int(x.get_shape()[3])
-        # filter w * h * channels out
-        fan_out = filter_size[0] * filter_size[1] * num_filters
+    ckpt = tf.train.get_checkpoint_state(c.CKPT_PATH)
 
-        w_bound = np.sqrt(12. / (fan_in + fan_out))
-
-        w = tf.get_variable("W", w_shape, tf.float32,
-                            tf.random_uniform_initializer(-w_bound, w_bound))
-
-        b = tf.get_variable("b", b_shape,
-                            initializer=tf.constant_initializer(0.0))
-
-        return tf.nn.conv2d(x, w, stride_shape, padding="SAME") + b
+    if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
+        gan.saver.restore(sess, ckpt.model_checkpoint_path)
+    else:
+        sess.run(tf.global_variables_initializer())
+    return gan
 
 def linear(x, size, name, initializer=None):
     """
     Defines a linear layer in tf.
     """
-    w = tf.get_variable(name + "/w", [x.get_shape()[1], size],
-                        initializer=initializer)
+    if not initializer:
+        print x.get_shape()[1]
+        initializer = tf.truncated_normal([int(x.get_shape()[1]), size],
+                                          stddev=0.1)
+    w = tf.get_variable(name + "/w", initializer=initializer)
     b = tf.get_variable(name + "/b", [size],
                         initializer=tf.constant_initializer(0))
     return tf.matmul(x, w) + b
 
+def build_generator(x, gen_network):
+    """
+    Builds a linear feedforward generator network.
+    """
+    with tf.variable_scope('gen'):
+        for name, size in gen_network:
+            x = tf.nn.relu(linear(x, size, name))
+        return tf.nn.tanh(x)
+
+def build_discriminator(x_data, x_generated, discrim_network):
+    """
+    Builds a linear feedforward discriminator network.
+    """
+    with tf.variable_scope('discrim'):
+        x = tf.concat([x_data, x_generated], 0)
+        for name, size in discrim_network:
+            x = tf.nn.relu(linear(x, size, name))
+            x = tf.nn.dropout(x, c.KEEP_PROB)
+        y_data = tf.nn.sigmoid(tf.slice(x, [0, 0], [c.BATCH_SIZE, -1],
+                                        name=None))
+        y_generated = tf.nn.sigmoid(tf.slice(x, [c.BATCH_SIZE, 0], [-1, -1],
+                                             name=None))
+        return y_data, y_generated
+
 class GAN(object):
-    """
-    Model for DCGAN.
-    """
 
-    def __init__(self, image_shape):
-        """
-        Builds the DCGAN model.
-        """
-        x = tf.placeholder(tf.float32, [None] + image_shape)
+    def __init__(self, input_size, z_size, gen_network, discrim_network):
 
-        for name, filter_shape, stride in c.CONV_SETUP:
-            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, name, filter_shape,
-                                 stride))
+        # Construct networks
+        self.x = x = tf.placeholder(tf.float32, [None, input_size], name="x")
+        self.z = z = tf.placeholder(tf.float32, [None, z_size], name="z")
+        self.generator = build_generator(z, gen_network)
+        discriminator = build_discriminator(x, self.generator, discrim_network)
+        self.discrim_data = discriminator[0]
+        self.discrim_gen = discriminator[1]
+
+        # Training
+        d_loss = - (tf.log(self.discrim_data) + tf.log(1 - self.discrim_gen))
+        g_loss = - tf.log(self.discrim_gen)
+
+        adam_opt = tf.train.AdamOptimizer(c.LEARNING_RATE)
+
+        g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
+        d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
+
+        self.d_train = adam_opt.minimize(d_loss, var_list=d_vars)
+        self.g_train = adam_opt.minimize(g_loss, var_list=g_vars)
+
+        # Summary ops
+        image = tf.expand_dims(tf.reshape(self.generator, c.IM_RESHAPE), -1)
+        im_sum = tf.summary.image('model/generated', image)
+        d_loss_sum = tf.summary.scalar('model/d_loss', tf.reduce_mean(d_loss))
+        g_loss_sum = tf.summary.scalar('model/g_loss', tf.reduce_mean(g_loss))
+        var_g_sum = tf.summary.scalar('model/g_norm', tf.global_norm(g_vars))
+        var_d_sum = tf.summary.scalar('model/d_norm', tf.global_norm(d_vars))
+        self.summary_op = tf.summary.merge([im_sum, d_loss_sum, g_loss_sum,
+                                            var_g_sum, var_d_sum])
+        self.summary_writer = tf.summary.FileWriter(c.LOGDIR)
+
+        # Misc ops
+        self.global_step = tf.Variable(0, name="global_step", trainable=False)
+        self.global_inc = tf.assign(self.global_step, self.global_step + 1)
+        self.saver = tf.train.Saver()
+
+    def train(self, sess, x, z, get_summary=False):
+        """
+        Trains GAN.
+        """
+        feed_dict = {
+            self.x: x,
+            self.z: z
+        }
+
+        output_feed = [self.d_train, self.g_train]
+
+        if get_summary:
+            output_feed = output_feed + [self.summary_op]
+
+        fetched = sess.run(output_feed, feed_dict)
+
+        if get_summary:
+            self.summary_writer.add_summary(tf.Summary.FromString(fetched[2]),
+                                            sess.run(self.global_step))
+            self.summary_writer.flush()
+
+        return fetched
+
+    def generate(self, sess, z):
+
+        feed_dict = {self.z: z}
+
+        return sess.run(self.generator, feed_dict)
+
