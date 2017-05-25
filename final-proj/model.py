@@ -28,7 +28,6 @@ def linear(x, size, name, initializer=None):
     Defines a linear layer in tf.
     """
     if not initializer:
-        print x.get_shape()[1]
         initializer = tf.truncated_normal([int(x.get_shape()[1]), size],
                                           stddev=0.1)
     w = tf.get_variable(name + "/w", initializer=initializer)
@@ -41,8 +40,11 @@ def build_generator(x, gen_network):
     Builds a linear feedforward generator network.
     """
     with tf.variable_scope('gen'):
-        for name, size in gen_network:
-            x = tf.nn.relu(linear(x, size, name))
+        for i, (name, size) in enumerate(gen_network):
+            if i == len(gen_network) - 1:
+                x = linear(x, size, name)
+            else:
+                x = tf.nn.relu(linear(x, size, name))
         return tf.nn.tanh(x)
 
 def build_discriminator(x_data, x_generated, discrim_network):
@@ -51,9 +53,12 @@ def build_discriminator(x_data, x_generated, discrim_network):
     """
     with tf.variable_scope('discrim'):
         x = tf.concat([x_data, x_generated], 0)
-        for name, size in discrim_network:
-            x = tf.nn.relu(linear(x, size, name))
-            x = tf.nn.dropout(x, c.KEEP_PROB)
+        for i, (name, size) in enumerate(discrim_network):
+            if i == len(discrim_network) - 1:
+                x = linear(x, size, name)
+            else:
+                x = tf.nn.relu(linear(x, size, name))
+                x = tf.nn.dropout(x, c.KEEP_PROB)
         y_data = tf.nn.sigmoid(tf.slice(x, [0, 0], [c.BATCH_SIZE, -1],
                                         name=None))
         y_generated = tf.nn.sigmoid(tf.slice(x, [c.BATCH_SIZE, 0], [-1, -1],
@@ -78,19 +83,21 @@ class GAN(object):
 
         adam_opt = tf.train.AdamOptimizer(c.LEARNING_RATE)
 
-        g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
-        d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
+        self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
+        self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
 
-        self.d_train = adam_opt.minimize(d_loss, var_list=d_vars)
-        self.g_train = adam_opt.minimize(g_loss, var_list=g_vars)
+        self.d_train = adam_opt.minimize(d_loss, var_list=self.d_vars)
+        self.g_train = adam_opt.minimize(g_loss, var_list=self.g_vars)
 
         # Summary ops
         image = tf.expand_dims(tf.reshape(self.generator, c.IM_RESHAPE), -1)
         im_sum = tf.summary.image('model/generated', image)
         d_loss_sum = tf.summary.scalar('model/d_loss', tf.reduce_mean(d_loss))
         g_loss_sum = tf.summary.scalar('model/g_loss', tf.reduce_mean(g_loss))
-        var_g_sum = tf.summary.scalar('model/g_norm', tf.global_norm(g_vars))
-        var_d_sum = tf.summary.scalar('model/d_norm', tf.global_norm(d_vars))
+        var_g_sum = tf.summary.scalar('model/g_norm',
+                                      tf.global_norm(self.g_vars))
+        var_d_sum = tf.summary.scalar('model/d_norm',
+                                      tf.global_norm(self.d_vars))
         self.summary_op = tf.summary.merge([im_sum, d_loss_sum, g_loss_sum,
                                             var_g_sum, var_d_sum])
         self.summary_writer = tf.summary.FileWriter(c.LOGDIR)
@@ -124,7 +131,9 @@ class GAN(object):
         return fetched
 
     def generate(self, sess, z):
-
+        """
+        Generates a batch of numbers.
+        """
         feed_dict = {self.z: z}
 
         return sess.run(self.generator, feed_dict)

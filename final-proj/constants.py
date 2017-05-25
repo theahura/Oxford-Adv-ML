@@ -29,4 +29,3 @@ LOGDIR = './data/logs/'
 MAX_EPOCH = 500
 SUM_STEPS = TOTAL_SIZE / BATCH_SIZE - 1
 TRAIN = True
-
