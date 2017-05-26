@@ -81,7 +81,9 @@ class GAN(object):
         d_loss = - (tf.log(self.discrim_data) + tf.log(1 - self.discrim_gen))
         g_loss = - tf.log(self.discrim_gen)
 
-        adam_opt = tf.train.AdamOptimizer(c.LEARNING_RATE)
+        adam_opt = tf.train.GradientDescentOptimizer(c.LEARNING_RATE)
+        if c.ADAM:
+            adam_opt = tf.train.AdamOptimizer(c.LEARNING_RATE)
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
