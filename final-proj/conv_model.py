@@ -12,7 +12,7 @@ def get_model(sess):
     """
     Loads the tf model or inits a new one.
     """
-    gan = CONVGAN(c.IM_SIZE, c.Z_SIZE, c.GEN_NETWORK, c.DISCRIM_NETWORK)
+    gan = CONVGAN(c.IM_SIZE, c.Z_SIZE)
 
     ckpt = tf.train.get_checkpoint_state(c.CKPT_PATH)
 
@@ -71,7 +71,7 @@ def linear(x, size, name, initializer=None):
                         initializer=tf.constant_initializer(0))
     return tf.matmul(x, w) + b
 
-def build_generator(x, gen_network):
+def build_generator(x):
     """
     Builds a linear feedforward generator network.
     """
@@ -82,10 +82,9 @@ def build_generator(x, gen_network):
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
         x = flatten(x)
         x = linear(x, c.IM_SIZE, 'glin')
-        x = tf.reshape(x, [-1, c.W, c.H, 1])
         return tf.nn.tanh(x)
 
-def build_discriminator(x_data, x_generated, discrim_network):
+def build_discriminator(x_data, x_generated):
     """
     Builds a linear feedforward discriminator network.
     """
@@ -98,44 +97,62 @@ def build_discriminator(x_data, x_generated, discrim_network):
 
         x = flatten(x)
         x = linear(x, 1, 'glin')
-
         y_data = tf.nn.sigmoid(tf.slice(x, [0, 0], [c.BATCH_SIZE, -1],
                                         name=None))
         y_generated = tf.nn.sigmoid(tf.slice(x, [c.BATCH_SIZE, 0], [-1, -1],
                                              name=None))
         return y_data, y_generated
 
+def cost(logits, labels):
+    logits = tf.clip_by_value(logits, 1e-7, 1.0 - 1e-7)
+    return tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+
 class CONVGAN(object):
 
-    def __init__(self, input_size, z_size, gen_network, discrim_network):
+    def __init__(self, input_size, z_size):
 
         # Construct networks
         self.x = x = tf.placeholder(tf.float32, [None, c.W, c.H], name="x")
         x = tf.expand_dims(x, -1)
         self.z = z = tf.placeholder(tf.float32, [None, c.zW, c.zH], name="z")
         z = tf.expand_dims(z, -1)
-        self.generator = build_generator(z, gen_network)
-        discriminator = build_discriminator(x, self.generator, discrim_network)
+        self.generator = build_generator(z)
+        generated_image = tf.reshape(self.generator, [-1, c.W, c.H, 1])
+        discriminator = build_discriminator(x, generated_image)
         self.discrim_data = discriminator[0]
         self.discrim_gen = discriminator[1]
 
         # Training
-        d_loss = - (tf.log(self.discrim_data) + tf.log(1 - self.discrim_gen))
-        g_loss = - tf.log(self.discrim_gen)
+        d_cost_real = cost(self.discrim_data, tf.ones_like(self.discrim_data))
+        d_cost_gen = cost(self.discrim_gen, tf.zeros_like(self.discrim_gen))
+        self.d_loss = d_loss = d_cost_real + d_cost_gen
 
-        adam_opt = tf.train.GradientDescentOptimizer(c.LEARNING_RATE)
-        if c.ADAM:
-            adam_opt = tf.train.AdamOptimizer(c.LEARNING_RATE)
+        self.g_loss = g_loss = cost(self.discrim_gen,
+                                    tf.ones_like(self.discrim_gen))
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
 
-        self.d_train = adam_opt.minimize(d_loss, var_list=self.d_vars)
-        self.g_train = adam_opt.minimize(g_loss, var_list=self.g_vars)
+        self.g_grads = g_grads = tf.gradients(self.g_loss, self.g_vars)
+        self.d_grads = d_grads = tf.gradients(self.d_loss, self.d_vars)
+
+        g_grads, _ = tf.clip_by_global_norm(g_grads, c.MAX_GRAD_NORM)
+        d_grads, _ = tf.clip_by_global_norm(d_grads, c.MAX_GRAD_NORM)
+
+        d_grads_and_vars = list(zip(d_grads, self.d_vars))
+        g_grads_and_vars = list(zip(g_grads, self.g_vars))
+
+        train = tf.train.AdamOptimizer(learning_rate=c.LEARNING_RATE)
+
+        if not c.ADAM:
+            train = tf.train.GradientDescentOptimizer(c.LEARNING_RATE)
+
+        self.d_train = train.apply_gradients(d_grads_and_vars)
+        self.g_train = train.apply_gradients(g_grads_and_vars)
 
         # Summary ops
-        image = tf.expand_dims(tf.reshape(self.generator, c.IM_RESHAPE), -1)
-        im_sum = tf.summary.image('model/generated', image)
+        self.image = tf.expand_dims(tf.reshape(self.generator, c.IM_RESHAPE), -1)
+        im_sum = tf.summary.image('model/generated', self.image)
         d_loss_sum = tf.summary.scalar('model/d_loss', tf.reduce_mean(d_loss))
         g_loss_sum = tf.summary.scalar('model/g_loss', tf.reduce_mean(g_loss))
         var_g_sum = tf.summary.scalar('model/g_norm',
@@ -165,12 +182,18 @@ class CONVGAN(object):
         if get_summary:
             output_feed = output_feed + [self.summary_op]
 
+        if c.DEBUG:
+            output_feed = output_feed + [self.d_loss, self.g_loss, self.image,
+                                         self.d_grads, self.g_grads]
+
         fetched = sess.run(output_feed, feed_dict)
 
         if get_summary:
             self.summary_writer.add_summary(tf.Summary.FromString(fetched[2]),
                                             sess.run(self.global_step))
             self.summary_writer.flush()
+
+            print 'GOT SUMMARY'
 
         return fetched
 

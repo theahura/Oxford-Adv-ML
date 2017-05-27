@@ -33,14 +33,28 @@ if c.TRAIN:
         for j in range(total_size / batch_size):
             print "epoch:%s, iter:%s" % (i, j)
             x, _ = data.train.next_batch(batch_size)
-            x = np.reshape(x, (batch_size, c.W, c.H))
             x = 2 * x.astype(np.float32) - 1
-            z = np.random.normal(0, 1,
-                                 size=(batch_size,
-                                       c.zW, c.zH)).astype(np.float32)
+            z = np.random.normal(0, 1, size=(batch_size,
+                                             z_size)).astype(np.float32)
+
+            if not c.LINEAR:
+                x = np.reshape(x, (batch_size, c.W, c.H))
+
+                z = np.random.normal(0, 1,
+                                     size=(batch_size,
+                                           c.zW, c.zH)).astype(np.float32)
 
             get_summary = True if j % c.SUM_STEPS == 0 else False
-            gan.train(sess, x, z, get_summary)
+
+            fetched = gan.train(sess, x, z, get_summary)
+
+            if c.DEBUG and get_summary:
+                print fetched[3]
+                print sess.run(tf.reduce_mean(fetched[3]))
+                print sess.run(tf.reduce_mean(fetched[4]))
+                print fetched[5]
+                print np.array(fetched[5]).shape
+                print fetched[6]
 
         sess.run(gan.global_inc)
         gan.saver.save(sess, checkpoint_path, global_step=gan.global_step)
