@@ -124,8 +124,8 @@ class CONVGAN(object):
         d_cost_gen = cost(self.discrim_gen, tf.zeros_like(self.discrim_gen))
         self.d_loss = d_loss = d_cost_real + d_cost_gen
 
-        self.g_loss = g_loss = cost(self.discrim_data,
-                                    tf.ones_like(self.discrim_data))
+        self.g_loss = g_loss = cost(self.discrim_gen,
+                                    tf.ones_like(self.discrim_gen))
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')
