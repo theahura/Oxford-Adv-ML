@@ -28,9 +28,13 @@ def flatten(x):
     """
     return tf.reshape(x, [-1, np.prod(x.get_shape().as_list()[1:])])
 
+def batchnormalize(x, eps=1e-8):
+    mean = tf.reduce_mean(x, [0, 1, 2])
+    std = tf.reduce_mean( tf.square(x - mean), [0, 1, 2])
+    x = (x - mean) / tf.sqrt(std + eps)
+    return x
 
-
-def conv2d(x, num_filters, name, filter_size=(3, 3), stride=1):
+def conv2d(x, num_filters, name, filter_size=(3, 3), stride=2):
     """
     Defines 2d convolution layer.
     """
@@ -57,8 +61,6 @@ def conv2d(x, num_filters, name, filter_size=(3, 3), stride=1):
 
         return tf.nn.conv2d(x, w, stride_shape, padding="SAME") + b
 
-
-
 def linear(x, size, name, initializer=None):
     """
     Defines a linear layer in tf.
@@ -77,8 +79,9 @@ def build_generator(x):
     """
     with tf.variable_scope('gen'):
         for i in range(c.LAYERS):
-            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE))
+            x = tf.nn.elu(batchnormalize(conv2d(x, c.OUTPUT_CHANNELS,
+                                                'l{}'.format(i + 1),
+                                                c.FILTER_SHAPE, c.STRIDE)))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
         x = flatten(x)
         x = linear(x, c.IM_SIZE, 'glin')
@@ -91,8 +94,9 @@ def build_discriminator(x_data, x_generated):
     with tf.variable_scope('discrim'):
         x = tf.concat([x_data, x_generated], 0)
         for i in range(c.LAYERS):
-            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE))
+            x = tf.nn.elu(batchnormalize(conv2d(x, c.OUTPUT_CHANNELS,
+                                                'l{}'.format(i + 1),
+                                                c.FILTER_SHAPE, c.STRIDE)))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
 
         x = flatten(x)
