@@ -87,12 +87,11 @@ def build_generator(x):
         x = linear(x, c.IM_SIZE, 'glin')
         return tf.nn.tanh(x)
 
-def build_discriminator(x_data, x_generated):
+def build_discriminator(x, reuse=False):
     """
     Builds a linear feedforward discriminator network.
     """
-    with tf.variable_scope('discrim'):
-        x = tf.concat([x_data, x_generated], 0)
+    with tf.variable_scope('discrim', reuse=reuse):
         for i in range(c.LAYERS):
             x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
                                  c.FILTER_SHAPE, c.STRIDE))
@@ -100,11 +99,7 @@ def build_discriminator(x_data, x_generated):
 
         x = flatten(x)
         x = linear(x, 1, 'glin')
-        y_data = tf.nn.sigmoid(tf.slice(x, [0, 0], [c.BATCH_SIZE, -1],
-                                        name=None))
-        y_generated = tf.nn.sigmoid(tf.slice(x, [c.BATCH_SIZE, 0], [-1, -1],
-                                             name=None))
-        return y_data, y_generated
+        return tf.nn.sigmoid(x)
 
 def cost(logits, labels):
     logits = tf.clip_by_value(logits, 1e-7, 1.0 - 1e-7)
@@ -121,9 +116,8 @@ class CONVGAN(object):
         z = tf.expand_dims(z, -1)
         self.generator = build_generator(z)
         generated_image = tf.reshape(self.generator, [-1, c.W, c.H, 1])
-        discriminator = build_discriminator(x, generated_image)
-        self.discrim_data = discriminator[0]
-        self.discrim_gen = discriminator[1]
+        self.discrim_data = build_discriminator(x)
+        self.discrim_gen = build_discriminator(generated_image, True)
 
         # Training
         d_cost_real = cost(self.discrim_data, tf.ones_like(self.discrim_data))

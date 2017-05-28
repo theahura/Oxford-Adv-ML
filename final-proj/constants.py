@@ -14,22 +14,22 @@ TOTAL_SIZE = 60000
 Z_SIZE = 100
 zW = zH = 10
 #       Construction vars
-LINEAR = True
-ADAM = False
+LINEAR = False
+ADAM = True
 #           Linear model
-LAYER1 = 300
-LAYER2 = 600
+LAYER1 = 150
+LAYER2 = 300
 GEN_NETWORK = [('g1', LAYER1), ('g2', LAYER2), ('g3', IM_SIZE)]
 DISCRIM_NETWORK = [('d1', LAYER2), ('d2', LAYER1), ('d3', 1)]
 KEEP_PROB = 0.5
 #           Conv model
-LAYERS = 1
-OUTPUT_CHANNELS = 2
+LAYERS = 2
+OUTPUT_CHANNELS = 1
 FILTER_SHAPE = [3, 3]
 STRIDE = 1
 CONV_KEEP_PROB = 0.5
 #       Optimizations and Convergence
-LEARNING_RATE = 0.0000001
+LEARNING_RATE = 0.0001
 MAX_GRAD_NORM = 5.0
 
 # Debugging
