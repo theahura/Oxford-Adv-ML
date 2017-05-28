@@ -48,7 +48,7 @@ if c.TRAIN:
 
             fetched = gan.train(sess, x, z, get_summary)
 
-            if c.DEBUG and get_summary:
+            if c.DEBUG and get_summary and not c.LINEAR:
                 print fetched[3]
                 print sess.run(tf.reduce_mean(fetched[3]))
                 print sess.run(tf.reduce_mean(fetched[4]))

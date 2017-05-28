@@ -59,7 +59,8 @@ def conv2d(x, num_filters, name, filter_size=(3, 3), stride=2):
         b = tf.get_variable("b", b_shape,
                             initializer=tf.constant_initializer(0.0))
 
-        return tf.nn.conv2d(x, w, stride_shape, padding="SAME") + b
+        return batchnormalize(tf.nn.conv2d(x, w, stride_shape,
+                                           padding="SAME") + b)
 
 def linear(x, size, name, initializer=None):
     """
@@ -79,9 +80,8 @@ def build_generator(x):
     """
     with tf.variable_scope('gen'):
         for i in range(c.LAYERS):
-            x = tf.nn.elu(batchnormalize(conv2d(x, c.OUTPUT_CHANNELS,
-                                                'l{}'.format(i + 1),
-                                                c.FILTER_SHAPE, c.STRIDE)))
+            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
+                                 c.FILTER_SHAPE, c.STRIDE))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
         x = flatten(x)
         x = linear(x, c.IM_SIZE, 'glin')
@@ -94,9 +94,8 @@ def build_discriminator(x_data, x_generated):
     with tf.variable_scope('discrim'):
         x = tf.concat([x_data, x_generated], 0)
         for i in range(c.LAYERS):
-            x = tf.nn.elu(batchnormalize(conv2d(x, c.OUTPUT_CHANNELS,
-                                                'l{}'.format(i + 1),
-                                                c.FILTER_SHAPE, c.STRIDE)))
+            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
+                                 c.FILTER_SHAPE, c.STRIDE))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
 
         x = flatten(x)
@@ -131,8 +130,8 @@ class CONVGAN(object):
         d_cost_gen = cost(self.discrim_gen, tf.zeros_like(self.discrim_gen))
         self.d_loss = d_loss = d_cost_real + d_cost_gen
 
-        self.g_loss = g_loss = cost(self.discrim_gen,
-                                    tf.ones_like(self.discrim_gen))
+        self.g_loss = g_loss = cost(self.discrim_data,
+                                    tf.ones_like(self.discrim_data))
 
         self.g_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'gen')
         self.d_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'discrim')

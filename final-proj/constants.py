@@ -14,8 +14,8 @@ TOTAL_SIZE = 60000
 Z_SIZE = 100
 zW = zH = 10
 #       Construction vars
-LINEAR = False
-ADAM = True
+LINEAR = True
+ADAM = False
 #           Linear model
 LAYER1 = 300
 LAYER2 = 600
