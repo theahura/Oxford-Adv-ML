@@ -1,0 +1,78 @@
+The routines use a common data structure 'hmm' with fields:
+
+
+hmm.train.cyc		max number of cycles through data
+	  .tol		termination tolerance of likelihood
+	  .rdisplay	continous output of free energy values
+	  .FrEn         free energy terms for each iteration
+	  .Xi           joint probability of past and future states 
+	  	  	conditioned on data 
+	  .Gamma        probability of states conditioned on data 
+	  .Gammasum     expectation of Gamma over time
+
+hmm.data.Xtrain		cell array containing training data
+         .T		length of training sequence
+		
+
+   .obsmodel	name of observation model
+		'Gauss'		- Gaussian
+		'LIKE'          - observations are likelihoods
+		'Poisson'	- Poisson
+		'Dirichlet'	- Discrete 
+   .K		dimension of state-space
+   .Pi 		expected initial state probability 
+   .P		expected state transition probabilities 
+   .gmmll	log-likelihood of gmm model used for initialisation
+   .mix		Gaussian mixture model trained on same data
+
+   .train.init   	initialisation flag  (1 or 0)
+         .obsupdate	update observation model (1 or 0)
+         .pupdate	update transition matrix (1 or 0)
+	   
+   .Dir2d_alpha   posterior 2-D Dirichlet for Tx Probabilities
+   .Dir_alpha     posterior Dirichlet for intial state Probabilities 
+
+   .prior.Dir2d_alpha  2-D Dirichlet prior for Tx Probabilities
+         .Dir_alpha    Dirichlet prior for initial state Probabilities
+
+
+
+For 'Gauss' observation models we also have:
+hmm.state(:)
+	   .Mu		Expectation of Posterior for mean
+           .Cov         Expectation of Posterior for Covariance
+	   .Norm_Mu     Posterior for mean: mean (1,dimension(data))
+           .Norm_Cov    Posterior for mean: covariance
+           .Norm_Prec   Posterior for mean: precision
+           .Wish_alpha  Posterior for Covariance: scale parameter
+           .Wish_B      Posterior for Covariance: shape matrix
+           .Wish_iB     inverse of .Wish_B 
+           .prior       priors for each state
+                 .Norm_Mu     Prior for mean: mean (1,dimension(data))
+                 .Norm_Cov    Prior for mean: covariance
+                 .Norm_Prec   Prior for mean: precision
+                 .Wish_alpha  Prior for Covariance: scale parameter
+                 .Wish_B      Prior for Covariance: shape matrix
+                 .Wish_iB     inverse of .Wish_B 
+		 .Wish_k      dimension of B
+
+For 'Poisson' observation models we also have:
+hmm.state(k)
+           .Gamma_alpha	  Posterior for rate: scale parameter
+           .Gamma_beta    Posterior for rate: shape parameter
+           .prior         priors for each state
+                .Gamma_alpha   prior for rate: scale parameter
+                .Gamma_beta    prior for rate: shape parameter
+
+
+For 'Dirichlet' observation models we also have:
+hmm.state(k)
+           .Dir_alpha     posterior for cell Probabilities 
+           .prior       priors for each state
+                 .Dir_alpha     prior for cell Probabilities 
+
+
+
+For 'LIKE' observation models, there are no extra parameters.
+
+

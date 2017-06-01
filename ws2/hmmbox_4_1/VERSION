@@ -1,0 +1,13 @@
+What's new in version 4.x:
+
+VERSION 4.1
+
+1. estimates the HMM in  Variational Bayes framework.
+
+2. The observation models included so far  Gaussian, Poisson and Dirichlet
+
+3: requires parameter priors and contains new functions 
+   gauss_kl.m, wishart_kl.m dirichlet_kl.m. 
+
+4. Backward compatibility functions for Versions 3.2 and 3.3 added.
+

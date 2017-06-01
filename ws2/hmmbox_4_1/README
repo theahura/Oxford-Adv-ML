@@ -1,0 +1,30 @@
+HMMBOX, version 4.1, Iead Rezek, Oxford University, July 2001
+Matlab toolbox for Variational estimation Hidden Markov Models. 
+
+(Adapted from Hidden Markov Toolbox Version 3.3  01-Apr-99 and 
+Coupled Hidden Markov  Toolbox Version 1.1  01-Feb-01 
+Copyright (c) by Iead Rezek, Oxford University)
+
+The software uses some NETLAB routines
+(see http://neural-server.aston.ac.uk/netlab/index.html
+so you'll need to have NETLAB on your search path
+
+See the file VERSION for what's new in this version.
+
+The observation models has so far been implemented are 
+Gaussian, Poisson and Dirichlet
+
+DEMONSTRATIONS:
+
+demgausschmm.m       uses Gaussian observation model on AR features
+
+To extend the CHMM to different observation models add the required
+code into cobsinit, obslike and obsupdate.
+
+ROUTINES:
+Read the file Contents.m
+
+DATA:
+
+Read the file DATA-STRUCTURE.
+
