@@ -34,13 +34,16 @@ def batchnormalize(x, eps=1e-8):
     x = (x - mean) / tf.sqrt(std + eps)
     return x
 
-def conv2d(x, num_filters, name, filter_size=(3, 3), stride=2):
+def conv2d(x, num_filters, name, filter_size=(3, 3), stride=2, i=0, maxmult=1):
     """
     Defines 2d convolution layer.
     """
     with tf.variable_scope(name):
         stride_shape = [1, stride, stride, 1]
-        w_shape = [filter_size[0], filter_size[1], int(x.get_shape()[3]),
+
+        # Weights scale up in powers of 2 for deconv.
+        w_shape = [filter_size[0]*(2**i), filter_size[1]*(2**i),
+                   int(x.get_shape()[3])*(maxmult/(i + 1)),
                    num_filters]
         b_shape = [1, 1, 1, num_filters]
 
@@ -81,7 +84,7 @@ def build_generator(x):
     with tf.variable_scope('gen'):
         for i in range(c.LAYERS):
             x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE))
+                                 c.FILTER_SHAPE, c.STRIDE, i, 8))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
 
             if c.USE_POOL:
