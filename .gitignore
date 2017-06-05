@@ -11,3 +11,5 @@ backups/
 *.data
 *.csv
 MNIST_data
+CIFAR_data
+send_to_remote

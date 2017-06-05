@@ -12,9 +12,17 @@ import constants as c
 import load_data
 import model
 import conv_model
+import lstm_model
 
 sess = tf.Session()
-gan = model.get_model(sess) if c.LINEAR else conv_model.get_model(sess)
+
+gan = None
+if c.MODEL == 'linear':
+    gan = model.get_model(sess)
+elif c.MODEL == 'conv':
+    gan = conv_model.get_model(sess)
+else:
+    gan = lstm_model.get_model(sess)
 batch_size = c.BATCH_SIZE
 total_size = c.TOTAL_SIZE
 z_size = c.Z_SIZE
@@ -37,7 +45,7 @@ if c.TRAIN:
             z = np.random.normal(0, 1, size=(batch_size,
                                              z_size)).astype(np.float32)
 
-            if not c.LINEAR:
+            if c.MODEL == 'conv':
                 x = np.reshape(x, (batch_size, c.W, c.H))
 
                 z = np.random.normal(0, 1,
@@ -48,7 +56,7 @@ if c.TRAIN:
 
             fetched = gan.train(sess, x, z, get_summary)
 
-            if c.DEBUG and get_summary and not c.LINEAR:
+            if c.DEBUG and get_summary and c.MODEL != 'linear':
                 print fetched[3]
                 print sess.run(tf.reduce_mean(fetched[3]))
                 print sess.run(tf.reduce_mean(fetched[4]))

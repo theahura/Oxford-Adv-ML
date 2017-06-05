@@ -12,7 +12,7 @@ def get_model(sess):
     """
     Loads the tf model or inits a new one.
     """
-    gan = CONVGAN(c.IM_SIZE, c.Z_SIZE)
+    gan = LSTMGAN(c.IM_SIZE, c.Z_SIZE)
 
     ckpt = tf.train.get_checkpoint_state(c.CKPT_PATH)
 
@@ -34,34 +34,6 @@ def batchnormalize(x, eps=1e-8):
     x = (x - mean) / tf.sqrt(std + eps)
     return x
 
-def conv2d(x, num_filters, name, filter_size=(3, 3), stride=2):
-    """
-    Defines 2d convolution layer.
-    """
-    with tf.variable_scope(name):
-        stride_shape = [1, stride, stride, 1]
-        w_shape = [filter_size[0], filter_size[1], int(x.get_shape()[3]),
-                   num_filters]
-        b_shape = [1, 1, 1, num_filters]
-
-        # initialize weights with random weights, see ELU paper
-        # which cites He initialization
-        # filter w * h * channels in
-        fan_in = filter_size[0] * filter_size[1] * int(x.get_shape()[3])
-        # filter w * h * channels out
-        fan_out = filter_size[0] * filter_size[1] * num_filters
-
-        w_bound = np.sqrt(12. / (fan_in + fan_out))
-
-        w = tf.get_variable("W", w_shape, tf.float32,
-                            tf.random_uniform_initializer(-w_bound, w_bound))
-
-        b = tf.get_variable("b", b_shape,
-                            initializer=tf.constant_initializer(0.0))
-
-        return batchnormalize(tf.nn.conv2d(x, w, stride_shape,
-                                           padding="SAME") + b)
-
 def linear(x, size, name, initializer=None):
     """
     Defines a linear layer in tf.
@@ -74,20 +46,26 @@ def linear(x, size, name, initializer=None):
                         initializer=tf.constant_initializer(0))
     return tf.matmul(x, w) + b
 
+def single_cell(units):
+    cell = tf.contrib.rnn.LSTMCell(units)
+    cell = tf.contrib.rnn.DropoutWrapper(cell, c.LSTM_KEEP_PROB,
+                                         c.LSTM_KEEP_PROB)
+    return cell
+
 def build_generator(x):
     """
     Builds a linear feedforward generator network.
     """
     with tf.variable_scope('gen'):
-        for i in range(c.LAYERS):
-            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE))
-            x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
+        cell = tf.contrib.rnn.MultiRNNCell([single_cell(c.LSTM_UNITS) for _ in
+                                            range(c.LSTM_LAYERS)])
+        x = tf.expand_dims(x, [0])
+        outputs, _ = tf.nn.dynamic_rnn(cell, x,
+                                       sequence_length=[tf.shape(x)[0]],
+                                       dtype=tf.float32, time_major=False)
 
-            if c.USE_POOL:
-                    x = tf.nn.max_pool(x, c.KSIZE, c.POOL_STRIDE, 'SAME')
-
-        x = flatten(x)
+        # Make this a column vector to make the linear math easier
+        x = tf.reshape(outputs, [-1, c.LSTM_UNITS])
         x = linear(x, c.IM_SIZE, 'glin')
         return tf.nn.tanh(x)
 
@@ -96,12 +74,15 @@ def build_discriminator(x, reuse=False):
     Builds a linear feedforward discriminator network.
     """
     with tf.variable_scope('discrim', reuse=reuse):
-        for i in range(c.LAYERS):
-            x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE))
-            x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
+        cell = tf.contrib.rnn.MultiRNNCell([single_cell(c.LSTM_UNITS) for _ in
+                                            range(c.LSTM_LAYERS)])
+        x = tf.expand_dims(x, [0])
+        outputs, _ = tf.nn.dynamic_rnn(cell, x,
+                                       sequence_length=[tf.shape(x)[0]],
+                                       dtype=tf.float32, time_major=False)
 
-        x = flatten(x)
+        # Make this a column vector to make the linear math easier
+        x = tf.reshape(outputs, [-1, c.LSTM_UNITS])
         x = linear(x, 1, 'glin')
         return tf.nn.sigmoid(x)
 
@@ -109,19 +90,15 @@ def cost(logits, labels):
     logits = tf.clip_by_value(logits, 1e-7, 1.0 - 1e-7)
     return tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
 
-class CONVGAN(object):
+class LSTMGAN(object):
 
     def __init__(self, input_size, z_size):
-
         # Construct networks
-        self.x = x = tf.placeholder(tf.float32, [None, c.W, c.H], name="x")
-        x = tf.expand_dims(x, -1)
-        self.z = z = tf.placeholder(tf.float32, [None, c.zW, c.zH], name="z")
-        z = tf.expand_dims(z, -1)
+        self.x = x = tf.placeholder(tf.float32, [None, input_size], name="x")
+        self.z = z = tf.placeholder(tf.float32, [None, z_size], name="z")
         self.generator = build_generator(z)
-        generated_image = tf.reshape(self.generator, [-1, c.W, c.H, 1])
         self.discrim_data = build_discriminator(x)
-        self.discrim_gen = build_discriminator(generated_image, True)
+        self.discrim_gen = build_discriminator(self.generator, True)
 
         # Training
         d_cost_real = cost(self.discrim_data, tf.ones_like(self.discrim_data))

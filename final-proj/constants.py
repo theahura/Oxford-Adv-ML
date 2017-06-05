@@ -14,7 +14,7 @@ TOTAL_SIZE = 60000
 Z_SIZE = 100
 zW = zH = 10
 #       Construction vars
-LINEAR = False
+MODEL = 'lstm' # linear, conv, or lstm
 ADAM = True
 #           Linear model
 LAYER1 = 150
@@ -28,6 +28,15 @@ OUTPUT_CHANNELS = 1
 FILTER_SHAPE = [3, 3]
 STRIDE = 1
 CONV_KEEP_PROB = 0.5
+#           Conv Pool model
+USE_POOL = True
+KSIZE = [1, 2, 2, 1]
+POOL_STRIDE = [1, 1, 1, 1]
+#           LSTM Model
+LSTM_LAYERS = 2
+LSTM_UNITS = 128
+LSTM_KEEP_PROB = 0.5
+
 #       Optimizations and Convergence
 LEARNING_RATE = 0.0001
 MAX_GRAD_NORM = 5.0
