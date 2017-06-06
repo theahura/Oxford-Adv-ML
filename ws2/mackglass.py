@@ -49,6 +49,7 @@ plt.title("Polynomial Regression")
 plt.show()
 
 # GP
+print x_train
 k = GPy.kern.RBF(input_dim=1, variance=1., lengthscale=1.)
 m = GPy.models.GPRegression(x_train, y_train, k)
 m.optimize_restarts(num_restarts=1)

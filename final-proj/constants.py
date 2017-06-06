@@ -14,8 +14,8 @@ TOTAL_SIZE = 60000
 Z_SIZE = 100
 zW = zH = 10
 #       Construction vars
-MODEL = 'lstm' # linear, conv, or lstm
-USE_POOL = False
+MODEL = 'conv' # linear, conv, or lstm
+USE_POOL = True
 ADAM = True
 #           Linear model
 LAYER1 = 150
@@ -26,7 +26,7 @@ KEEP_PROB = 0.5
 #           Conv model
 LAYERS = 2
 OUTPUT_CHANNELS = 5
-FILTER_SHAPE = [3, 3]
+FILTER_SHAPE = [2, 2]
 STRIDE = 1
 CONV_KEEP_PROB = 0.5
 #           Conv Pool model
@@ -42,11 +42,11 @@ LEARNING_RATE = 0.0001
 MAX_GRAD_NORM = 5.0
 
 # Debugging
-CKPT_PATH = './data/backups/adam-linear-150-300-100/'
-LOGDIR = './data/backups/adam-linear-150-300-100/'
+CKPT_PATH = './data/backups/convnet-1-2-pool/'
+LOGDIR = './data/backups/convnet-1-2-pool/'
 DEBUG = True
-SAVE_NAME = './data/images/linearmodel.png'
-TRAIN = False
+SAVE_NAME = './data/images/convnet-1-2-pool.png'
+TRAIN = True
 
 # Misc
 MAX_EPOCH = 500
