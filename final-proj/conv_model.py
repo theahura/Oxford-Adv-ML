@@ -83,7 +83,7 @@ def build_generator(x):
     with tf.variable_scope('gen'):
         for i in range(c.LAYERS):
             x = tf.nn.elu(conv2d(x, c.OUTPUT_CHANNELS, 'l{}'.format(i + 1),
-                                 c.FILTER_SHAPE, c.STRIDE, i, 8))
+                                 c.FILTER_SHAPE, c.STRIDE, i))
             x = tf.nn.dropout(x, c.CONV_KEEP_PROB)
 
             if c.USE_POOL:

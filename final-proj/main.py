@@ -7,6 +7,7 @@ import os
 
 import tensorflow as tf
 import numpy as np
+from skimage.io import imsave
 
 import constants as c
 import load_data
@@ -14,7 +15,25 @@ import model
 import conv_model
 import lstm_model
 
+def show_result(batch_res, fname, grid_size=(8, 8), grid_pad=5):
+    batch_res = 0.5 * batch_res.reshape((batch_res.shape[0], c.H, c.W)) + 0.5
+    img_h, img_w = batch_res.shape[1], batch_res.shape[2]
+    grid_h = img_h * grid_size[0] + grid_pad * (grid_size[0] - 1)
+    grid_w = img_w * grid_size[1] + grid_pad * (grid_size[1] - 1)
+    img_grid = np.zeros((grid_h, grid_w), dtype=np.uint8)
+    for i, res in enumerate(batch_res):
+        if i >= grid_size[0] * grid_size[1]:
+            break
+        img = (res) * 255
+        img = img.astype(np.uint8)
+        row = (i // grid_size[0]) * (img_h + grid_pad)
+        col = (i % grid_size[1]) * (img_w + grid_pad)
+        img_grid[row:row + img_h, col:col + img_w] = img
+    imsave(fname, img_grid)
+
 sess = tf.Session()
+
+print c.CKPT_PATH
 
 gan = None
 if c.MODEL == 'linear':
@@ -66,3 +85,9 @@ if c.TRAIN:
 
         sess.run(gan.global_inc)
         gan.saver.save(sess, checkpoint_path, global_step=gan.global_step)
+else:
+    z_test_value = np.random.normal(0, 1, size=(batch_size, z_size)).astype(np.float32)
+    if c.MODEL == 'conv':
+        z_test_value = z_test_value.reshape(batch_size, c.zW, c.zH)
+    x_gen_val = gan.generate(sess, z_test_value)
+    show_result(x_gen_val, c.SAVE_NAME)

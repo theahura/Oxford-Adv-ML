@@ -15,6 +15,7 @@ Z_SIZE = 100
 zW = zH = 10
 #       Construction vars
 MODEL = 'lstm' # linear, conv, or lstm
+USE_POOL = False
 ADAM = True
 #           Linear model
 LAYER1 = 150
@@ -29,7 +30,6 @@ FILTER_SHAPE = [3, 3]
 STRIDE = 1
 CONV_KEEP_PROB = 0.5
 #           Conv Pool model
-USE_POOL = True
 KSIZE = [1, 2, 2, 1]
 POOL_STRIDE = [1, 1, 1, 1]
 #           LSTM Model
@@ -42,11 +42,12 @@ LEARNING_RATE = 0.0001
 MAX_GRAD_NORM = 5.0
 
 # Debugging
-CKPT_PATH = './data/ckpt/'
-LOGDIR = './data/logs/'
+CKPT_PATH = './data/backups/adam-linear-150-300-100/'
+LOGDIR = './data/backups/adam-linear-150-300-100/'
 DEBUG = True
+SAVE_NAME = './data/images/linearmodel.png'
+TRAIN = False
 
 # Misc
 MAX_EPOCH = 500
 SUM_STEPS = TOTAL_SIZE / BATCH_SIZE - 1
-TRAIN = True
